@@ -8,6 +8,7 @@ import type {
 const PROVIDER_ID = "coreinfra";
 const PROVIDER_NAME = "CoreInfra AI Hub";
 const DEFAULT_HUB_BASE_URL = "https://hub.coreinfra.ai";
+const COREINFRA_API_KEY = "X-CoreInfra-Api-Key";
 const FETCH_TIMEOUT_MS = 10_000;
 type CoreInfraFamily =
   | "openai"
@@ -84,10 +85,27 @@ function anthropicBaseUrl(): string {
   return `${hubBaseUrl()}/anthropic/api`;
 }
 
-async function fetchHubModels(): Promise<HubResponse> {
-  const res = await fetch(`${hubBaseUrl()}/hub/api/prices`, {
+function hubApiToken(
+  env: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const token = env.COREINFRA_API_KEY?.trim();
+  return token ? token : undefined;
+}
+
+function pricesRequestInit(token?: string): RequestInit {
+  return {
+    headers: token ? { [COREINFRA_API_KEY]: token } : {},
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
+  };
+}
+
+async function fetchHubModels(
+  fetchImpl: typeof fetch = fetch,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<HubResponse> {
+  const url = `${hubBaseUrl()}/hub/api/prices`;
+  const token = hubApiToken(env);
+  const res = await fetchImpl(url, pricesRequestInit(token));
 
   if (!res.ok) {
     throw new Error(
